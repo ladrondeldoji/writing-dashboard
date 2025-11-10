@@ -2,11 +2,18 @@ let entries = JSON.parse(localStorage.getItem("entries")) || [];
 
 const form = document.getElementById("entry-form");
 const tableBody = document.querySelector("#records-table tbody");
+const projectFilter = document.getElementById("project-filter");
+const projectAveragesDiv = document.getElementById("project-averages");
 
-// 🧮 Función para actualizar la tabla
+let chart;
+
+// 🧮 Renderizar tabla según filtro
 function renderTable() {
+  const filter = projectFilter.value;
+  const filtered = filter === "all" ? entries : entries.filter(e => e.project === filter);
+
   tableBody.innerHTML = "";
-  entries
+  filtered
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .forEach(e => {
       const row = `<tr>
@@ -18,7 +25,7 @@ function renderTable() {
     });
 }
 
-// 📈 Función para actualizar las estadísticas
+// 📈 Actualizar estadísticas globales
 function updateStats() {
   if (entries.length === 0) return;
 
@@ -27,33 +34,27 @@ function updateStats() {
 
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
-  const todayWords = entries
-    .filter(e => e.date === todayStr)
-    .reduce((s, e) => s + e.words, 0);
+  const todayWords = entries.filter(e => e.date === todayStr).reduce((s, e) => s + e.words, 0);
 
   const weekAgo = new Date(now - 7 * 86400000);
   const monthAgo = new Date(now - 30 * 86400000);
 
-  const weeklyWords = entries
-    .filter(e => new Date(e.date) >= weekAgo)
-    .reduce((s, e) => s + e.words, 0);
-
-  const monthlyWords = entries
-    .filter(e => new Date(e.date) >= monthAgo)
-    .reduce((s, e) => s + e.words, 0);
+  const weeklyWords = entries.filter(e => new Date(e.date) >= weekAgo).reduce((s, e) => s + e.words, 0);
+  const monthlyWords = entries.filter(e => new Date(e.date) >= monthAgo).reduce((s, e) => s + e.words, 0);
 
   document.getElementById("daily").textContent = `Hoy: ${todayWords} palabras`;
   document.getElementById("weekly").textContent = `Últimos 7 días: ${weeklyWords} palabras`;
   document.getElementById("monthly").textContent = `Últimos 30 días: ${monthlyWords} palabras`;
 }
 
-// 📊 Gráfico con Chart.js
-let chart;
+// 📊 Gráfico general de progreso
 function renderChart() {
+  const filter = projectFilter.value;
   const ctx = document.getElementById("chart").getContext("2d");
-  const dataByDate = {};
+  const filtered = filter === "all" ? entries : entries.filter(e => e.project === filter);
 
-  entries.forEach(e => {
+  const dataByDate = {};
+  filtered.forEach(e => {
     dataByDate[e.date] = (dataByDate[e.date] || 0) + e.words;
   });
 
@@ -67,7 +68,7 @@ function renderChart() {
     data: {
       labels,
       datasets: [{
-        label: "Palabras escritas por día",
+        label: filter === "all" ? "Palabras (total)" : `Palabras - ${filter}`,
         data,
         fill: true,
         borderColor: "#1e6091",
@@ -80,6 +81,45 @@ function renderChart() {
   });
 }
 
+// 🧠 Calcular medias por proyecto
+function updateProjectAverages() {
+  const projects = [...new Set(entries.map(e => e.project))];
+  projectAveragesDiv.innerHTML = "";
+
+  projects.forEach(p => {
+    const projectEntries = entries.filter(e => e.project === p);
+    if (projectEntries.length === 0) return;
+
+    const total = projectEntries.reduce((s, e) => s + e.words, 0);
+    const firstDate = new Date(Math.min(...projectEntries.map(e => new Date(e.date))));
+    const daysElapsed = Math.max(1, (new Date() - firstDate) / 86400000);
+    const avgDaily = total / daysElapsed;
+
+    const now = new Date();
+    const weekAgo = new Date(now - 7 * 86400000);
+    const monthAgo = new Date(now - 30 * 86400000);
+
+    const weekly = projectEntries.filter(e => new Date(e.date) >= weekAgo).reduce((s, e) => s + e.words, 0);
+    const monthly = projectEntries.filter(e => new Date(e.date) >= monthAgo).reduce((s, e) => s + e.words, 0);
+
+    const div = document.createElement("div");
+    div.innerHTML = `<b>${p}</b> — Media diaria: ${avgDaily.toFixed(0)} | 7 días: ${weekly} | 30 días: ${monthly}`;
+    projectAveragesDiv.appendChild(div);
+  });
+}
+
+// 🧩 Actualizar selector de proyectos
+function updateProjectFilter() {
+  const projects = [...new Set(entries.map(e => e.project))];
+  projectFilter.innerHTML = '<option value="all">Todos los proyectos</option>';
+  projects.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    projectFilter.appendChild(opt);
+  });
+}
+
 // 📝 Guardar nuevo registro
 form.addEventListener("submit", e => {
   e.preventDefault();
@@ -88,18 +128,28 @@ form.addEventListener("submit", e => {
     date: document.getElementById("date").value,
     words: parseInt(document.getElementById("words").value)
   };
-
   if (!entry.project || !entry.date || isNaN(entry.words)) return;
 
   entries.push(entry);
   localStorage.setItem("entries", JSON.stringify(entries));
   form.reset();
+
+  updateProjectFilter();
   renderTable();
   updateStats();
+  updateProjectAverages();
   renderChart();
 });
 
-// 🧠 Inicialización
+// 🎛️ Cambio de filtro
+projectFilter.addEventListener("change", () => {
+  renderTable();
+  renderChart();
+});
+
+// 🚀 Inicialización
+updateProjectFilter();
 renderTable();
 updateStats();
+updateProjectAverages();
 renderChart();
