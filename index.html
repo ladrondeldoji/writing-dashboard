@@ -30,6 +30,13 @@
       </form>
     </section>
 
+    <section id="filters">
+      <h2>📁 Filtro por proyecto</h2>
+      <select id="project-filter">
+        <option value="all">Todos los proyectos</option>
+      </select>
+    </section>
+
     <section id="stats">
       <h2>📊 Estadísticas generales</h2>
       <p id="total"></p>
@@ -38,8 +45,13 @@
       <p id="monthly"></p>
     </section>
 
+    <section id="project-stats">
+      <h2>📈 Media por proyecto</h2>
+      <div id="project-averages"></div>
+    </section>
+
     <section id="chart-section">
-      <h2>📈 Gráfico de progreso</h2>
+      <h2>📉 Gráfico de progreso diario</h2>
       <canvas id="chart"></canvas>
     </section>
 
